@@ -1,3 +1,7 @@
 <resources>
 	<string name="app_name">Rx Auto Update Feed Comments</string>
+	<string name="intervalIndicatorFormat">Auto Update in %d second</string>
+	<string name="loadedPageFormat">Loaded Page(s): %d</string>
+	<string name="btn_loadNextPage">Load Next Page</string>
+	<string name="btn_addNewItem">Add New Item</string>
 </resources>
