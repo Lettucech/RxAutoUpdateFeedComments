@@ -64,4 +64,30 @@ public class CommentListAdapter extends ArrayAdapter<String> {
 					}
 				});
 	}
+
+	public void insertAllAtFirst(Collection<? extends String> collection) {
+		Observable.from(collection)
+				.filter(new Func1<String, Boolean>() {
+					@Override
+					public Boolean call(String s) {
+						return !data.contains(s);
+					}
+				})
+				.subscribe(new Subscriber<String>() {
+					@Override
+					public void onCompleted() {
+						notifyDataSetChanged();
+					}
+
+					@Override
+					public void onError(Throwable e) {
+						Log.e(TAG, e.toString());
+					}
+
+					@Override
+					public void onNext(String s) {
+						data.add(0, s);
+					}
+				});
+	}
 }

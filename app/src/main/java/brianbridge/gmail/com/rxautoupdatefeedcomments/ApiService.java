@@ -36,4 +36,8 @@ public class ApiService {
 		Log.d(TAG, loadedComment.toString());
 		return Observable.just(loadedComment);
 	}
+
+	public static void addNewItem() {
+		DATA.add(0, String.valueOf(DATA.size() + 1));
+	}
 }

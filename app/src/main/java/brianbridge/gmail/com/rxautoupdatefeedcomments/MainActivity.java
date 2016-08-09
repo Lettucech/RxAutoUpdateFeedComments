@@ -3,6 +3,7 @@ package brianbridge.gmail.com.rxautoupdatefeedcomments;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -20,7 +21,7 @@ import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.schedulers.Schedulers;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 	public static final String TAG = MainActivity.class.getSimpleName();
 	public static final int UPDATE_INTERVAL_IN_SECOND = 5;
 
@@ -46,6 +47,9 @@ public class MainActivity extends AppCompatActivity {
 		loadNextPageButton = (Button) findViewById(R.id.btn_loadNextPage);
 		addNewItemButton = (Button) findViewById(R.id.btn_addNewItem);
 
+		loadNextPageButton.setOnClickListener(this);
+		addNewItemButton.setOnClickListener(this);
+
 		intervalIndicatorStringFormat = getString(R.string.intervalIndicatorFormat);
 		loadedPageFormat = getString(R.string.loadedPageFormat);
 
@@ -59,6 +63,45 @@ public class MainActivity extends AppCompatActivity {
 		super.onDestroy();
 		if (autoUpdateSubscription != null && !autoUpdateSubscription.isUnsubscribed()) {
 			autoUpdateSubscription.unsubscribe();
+		}
+	}
+
+	@Override
+	public void onClick(View view) {
+		switch (view.getId()) {
+			case R.id.btn_addNewItem:
+				ApiService.addNewItem();
+				break;
+			case R.id.btn_loadNextPage:
+				if (autoUpdateSubscription != null && !autoUpdateSubscription.isUnsubscribed()) {
+					autoUpdateSubscription.unsubscribe();
+					intervalIndicatorTextView.setText("Auto Update Stopped");
+				}
+				ApiService.fetchComment(loadedPage + 1)
+						.subscribeOn(Schedulers.io())
+						.observeOn(AndroidSchedulers.mainThread())
+						.subscribe(new Subscriber<List<String>>() {
+							@Override
+							public void onCompleted() {
+								Log.d(TAG, "onCompleted");
+								startAutoUpdate();
+							}
+
+							@Override
+							public void onError(Throwable e) {
+								Log.e(TAG, e.toString());
+							}
+
+							@Override
+							public void onNext(List<String> strings) {
+								listAdapter.insertAllAtFirst(strings);
+								loadedPage = (int) Math.ceil(listAdapter.getCount() / ApiService.PAGE_SIZE);
+								loadedPageTextView.setText(String.format(loadedPageFormat, loadedPage));
+							}
+						});
+				break;
+			default:
+				Log.w(TAG, "unhandled");
 		}
 	}
 
@@ -101,9 +144,8 @@ public class MainActivity extends AppCompatActivity {
 					public void onNext(List<String> strings) {
 						Collections.reverse(strings);
 						listAdapter.addAll(strings);
-						listView.smoothScrollToPosition(listAdapter.getCount());
-						loadedPage = (int) Math.ceil(listAdapter.getCount() / ApiService.PAGE_SIZE);
-						loadedPageTextView.setText(String.format(load));
+						loadedPage = (int) Math.round(listAdapter.getCount() / ApiService.PAGE_SIZE + 0.5);
+						loadedPageTextView.setText(String.format(loadedPageFormat, loadedPage));
 					}
 				});
 	}
