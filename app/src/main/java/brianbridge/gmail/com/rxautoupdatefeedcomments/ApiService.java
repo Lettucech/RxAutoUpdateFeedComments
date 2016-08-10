@@ -5,10 +5,8 @@ import android.util.Log;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import rx.Observable;
-import rx.Subscriber;
 
 /**
  * This class is simulating Rx Retrofit2
@@ -26,14 +24,19 @@ public class ApiService {
 	}
 
 	public static Observable<List<String>> fetchComment(final int page) {
-		int start = page < 2 ? 0 : page * PAGE_SIZE;
-
+		int start = page < 2 ? 0 : (page - 1) * PAGE_SIZE;
+		int end = start + PAGE_SIZE;
 		List<String> loadedComment = new ArrayList<>();
-		for (int i = start; i < start + PAGE_SIZE; i++) {
-			loadedComment.add(DATA.get(i));
-		}
 
-		Log.d(TAG, loadedComment.toString());
+		if (start <= DATA.size()) {
+			if (end > DATA.size()) {
+				end = DATA.size();
+			}
+
+			for (int i = start; i < end; i++) {
+				loadedComment.add(DATA.get(i));
+			}
+		}
 		return Observable.just(loadedComment);
 	}
 

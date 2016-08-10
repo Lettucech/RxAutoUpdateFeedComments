@@ -6,6 +6,8 @@ import android.widget.ArrayAdapter;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import rx.Observable;
@@ -50,6 +52,13 @@ public class CommentListAdapter extends ArrayAdapter<String> {
 				.subscribe(new Subscriber<String>() {
 					@Override
 					public void onCompleted() {
+						Collections.sort(data, new Comparator<String>() {
+							@Override
+							public int compare(String s, String t1) {
+								return Integer.valueOf(t1).compareTo(Integer.valueOf(s));
+							}
+						});
+						Collections.reverse(data);
 						notifyDataSetChanged();
 					}
 
@@ -65,29 +74,7 @@ public class CommentListAdapter extends ArrayAdapter<String> {
 				});
 	}
 
-	public void insertAllAtFirst(Collection<? extends String> collection) {
-		Observable.from(collection)
-				.filter(new Func1<String, Boolean>() {
-					@Override
-					public Boolean call(String s) {
-						return !data.contains(s);
-					}
-				})
-				.subscribe(new Subscriber<String>() {
-					@Override
-					public void onCompleted() {
-						notifyDataSetChanged();
-					}
-
-					@Override
-					public void onError(Throwable e) {
-						Log.e(TAG, e.toString());
-					}
-
-					@Override
-					public void onNext(String s) {
-						data.add(0, s);
-					}
-				});
+	public boolean containsAny(Collection<? extends String> collection) {
+		return !Collections.disjoint(data, collection);
 	}
 }

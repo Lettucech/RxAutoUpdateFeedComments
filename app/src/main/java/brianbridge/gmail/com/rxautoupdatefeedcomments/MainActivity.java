@@ -1,7 +1,7 @@
 package brianbridge.gmail.com.rxautoupdatefeedcomments;
 
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -9,7 +9,6 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -17,7 +16,6 @@ import rx.Observable;
 import rx.Subscriber;
 import rx.Subscription;
 import rx.android.schedulers.AndroidSchedulers;
-import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.schedulers.Schedulers;
 
@@ -34,7 +32,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 	private CommentListAdapter listAdapter;
 	private String intervalIndicatorStringFormat;
 	private String loadedPageFormat;
-	private int loadedPage = 0;
+	private Double loadedPage = 0.0;
+	private List<String> fetchBuffer = new ArrayList<>();
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -77,7 +76,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 					autoUpdateSubscription.unsubscribe();
 					intervalIndicatorTextView.setText("Auto Update Stopped");
 				}
-				ApiService.fetchComment(loadedPage + 1)
+				int pageToLoad = loadedPage.intValue() + 1;
+				Log.d(TAG, "Page to load: " + pageToLoad);
+				ApiService.fetchComment(pageToLoad)
 						.subscribeOn(Schedulers.io())
 						.observeOn(AndroidSchedulers.mainThread())
 						.subscribe(new Subscriber<List<String>>() {
@@ -94,8 +95,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 							@Override
 							public void onNext(List<String> strings) {
-								listAdapter.insertAllAtFirst(strings);
-								loadedPage = (int) Math.ceil(listAdapter.getCount() / ApiService.PAGE_SIZE);
+								Log.d(TAG, "Next Page: " + strings.toString());
+
+								if (strings.size() < ApiService.PAGE_SIZE) {
+									loadNextPageButton.setEnabled(false);
+									loadNextPageButton.setText("End of list");
+								}
+
+								listAdapter.addAll(strings);
+								loadedPage = (double) listAdapter.getCount() / ApiService.PAGE_SIZE;
 								loadedPageTextView.setText(String.format(loadedPageFormat, loadedPage));
 							}
 						});
@@ -142,10 +150,57 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 					@Override
 					public void onNext(List<String> strings) {
-						Collections.reverse(strings);
-						listAdapter.addAll(strings);
-						loadedPage = (int) Math.round(listAdapter.getCount() / ApiService.PAGE_SIZE + 0.5);
-						loadedPageTextView.setText(String.format(loadedPageFormat, loadedPage));
+						Log.d(TAG, "Get comments: " + strings.toString());
+						if (listAdapter.getCount() == 0) {
+							listAdapter.addAll(strings);
+							loadedPage = 1.0;
+							loadedPageTextView.setText(String.format(loadedPageFormat, loadedPage));
+						} else {
+							if (listAdapter.containsAny(strings)) {
+								listAdapter.addAll(strings);
+								loadedPage = (double) listAdapter.getCount() / ApiService.PAGE_SIZE;
+								loadedPageTextView.setText(String.format(loadedPageFormat, loadedPage));
+							} else {
+								unsubscribe();
+								fetchBuffer.addAll(strings);
+								fetchUntilExistCommentFound(loadedPage.intValue() + 1);
+							}
+						}
+					}
+				});
+	}
+
+	private void fetchUntilExistCommentFound(final int page) {
+		ApiService.fetchComment(page)
+				.subscribe(new Subscriber<List<String>>() {
+					@Override
+					public void onCompleted() {
+						Log.d(TAG, "onCompleted");
+					}
+
+					@Override
+					public void onError(Throwable e) {
+						Log.e(TAG, e.toString());
+					}
+
+					@Override
+					public void onNext(List<String> strings) {
+						Log.d(TAG, "Get Comments: " + fetchBuffer.toString());
+						if (strings.isEmpty()) {
+							fetchBuffer.clear();
+							startAutoUpdate();
+						} else {
+							fetchBuffer.addAll(strings);
+							if (!listAdapter.containsAny(fetchBuffer)) {
+								fetchUntilExistCommentFound(page + 1);
+							} else {
+								listAdapter.addAll(fetchBuffer);
+								loadedPage = (double) listAdapter.getCount() / ApiService.PAGE_SIZE;
+								loadedPageTextView.setText(String.format(loadedPageFormat, loadedPage));
+								fetchBuffer.clear();
+								startAutoUpdate();
+							}
+						}
 					}
 				});
 	}
